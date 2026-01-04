@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>道路路寬查詢</title>
+  <style>
+    :root{
+      --bg:#0b1220;
+      --card:#0f1b33;
+      --line:rgba(255,255,255,.10);
+      --muted:rgba(255,255,255,.66);
+      --text:rgba(255,255,255,.92);
+      --accent:#6ea8ff;
+      --accent2:#7cf0c4;
+      --danger:#ff6b6b;
+      --warn:#ffcc66;
+      --ok:#6ee7b7;
+      --shadow: 0 12px 40px rgba(0,0,0,.35);
+      --radius:14px;
+
+      /* ✅ 深色 select 下拉選單可讀性 */
+      color-scheme: dark;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; padding:22px;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, "Noto Sans TC", "PingFang TC", sans-serif;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(110,168,255,.22), transparent 60%),
+        radial-gradient(900px 500px at 90% 0%, rgba(124,240,196,.14), transparent 55%),
+        radial-gradient(1000px 700px at 50% 120%, rgba(255,204,102,.10), transparent 60%),
+        var(--bg);
+      color:var(--text);
+      overflow-x:hidden; /* ✅ 主介面不出現橫向捲軸 */
+    }
+    .wrap{max-width:1100px; margin:0 auto;}
+    .header{
+      display:flex; align-items:flex-end; justify-content:space-between;
+      gap:16px; margin-bottom:14px; flex-wrap:wrap;
+    }
+    .title{display:flex; flex-direction:column; gap:6px;}
+    h1{margin:0; font-size:36px; letter-spacing:.2px;}
+    .subtitle{color:var(--muted); font-size:13px}
+    .badge{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:8px 10px; border:1px solid var(--line); border-radius:999px;
+      background:rgba(255,255,255,.04);
+      color:var(--muted); font-size:12px;
+      white-space:nowrap;
+    }
+
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+    .card .hd{
+      padding:14px 16px;
+      display:flex; align-items:center; justify-content:space-between;
+      border-bottom:1px solid var(--line);
+      background: rgba(0,0,0,.08);
+      gap:12px; flex-wrap:wrap;
+    }
+    .card .hd .h{
+      font-weight:750; letter-spacing:.2px; font-size:14px;
+      display:flex; align-items:center; gap:10px;
+    }
+    .dot{
+      width:10px; height:10px; border-radius:999px;
+      background:rgba(255,255,255,.18);
+      box-shadow:0 0 0 4px rgba(110,168,255,.10);
+    }
+    .pill{
+      display:inline-flex; align-items:center; gap:6px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.16);
+      color: rgba(255,255,255,.82);
+      font-size:12px;
+      white-space:nowrap;
+    }
+    .card .bd{padding:16px}
+
+    .status{
+      display:flex; gap:10px; align-items:flex-start;
+      padding:12px 14px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.04);
+      color:var(--muted);
+      line-height:1.45;
+    }
+    .status.ok{border-color: rgba(110,231,183,.25); background: rgba(110,231,183,.06); color:rgba(255,255,255,.9)}
+    .status.warn{border-color: rgba(255,204,102,.25); background: rgba(255,204,102,.06); color:rgba(255,255,255,.9)}
+    .status.err{border-color: rgba(255,107,107,.25); background: rgba(255,107,107,.07); color:rgba(255,255,255,.92)}
+    .status .icon{font-size:18px; line-height:1}
+
+    /* 控制區：RWD 無橫向捲軸 */
+    .controls{
+      display:grid; gap:10px;
+      grid-template-columns: 1.2fr .8fr;
+      align-items:end;
+    }
+    @media (max-width: 900px){
+      .controls{grid-template-columns:1fr}
+    }
+
+    .field label{
+      display:block; color:var(--muted); font-size:12px; margin-bottom:6px;
+    }
+    .row2{
+      display:grid; gap:10px;
+      grid-template-columns: repeat(2, 1fr);
+    }
+    @media (max-width: 720px){
+      .row2{grid-template-columns:1fr}
+    }
+    .row3{
+      display:grid; gap:10px;
+      grid-template-columns: repeat(3, 1fr);
+    }
+    @media (max-width: 900px){
+      .row3{grid-template-columns:1fr}
+    }
+
+    .input, .select{
+      width:100%;
+      padding:12px 12px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.22);
+      color: var(--text);
+      outline:none;
+    }
+    .input:focus, .select:focus{
+      border-color: rgba(110,168,255,.55);
+      box-shadow:0 0 0 4px rgba(110,168,255,.14);
+    }
+
+    /* ✅ 修正你說的 select 下拉底色太淺 */
+    .select{appearance:auto;}
+    .select option{
+      background:#0b1220;
+      color: rgba(255,255,255,.92);
+    }
+
+    .btnrow{display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;}
+    .btn{
+      border:none; cursor:pointer;
+      padding:12px 14px;
+      border-radius:12px;
+      font-weight:750;
+      background: rgba(110,168,255,.18);
+      color: rgba(255,255,255,.92);
+      border:1px solid rgba(110,168,255,.35);
+      transition: transform .05s ease, background .2s ease, border .2s ease;
+    }
+    .btn:hover{background: rgba(110,168,255,.28)}
+    .btn:active{transform: translateY(1px)}
+    .btn.secondary{
+      background: rgba(255,255,255,.06);
+      border:1px solid var(--line);
+      color: rgba(255,255,255,.86);
+    }
+    .btn:disabled{opacity:.55; cursor:not-allowed}
+
+    .stats{
+      display:grid; gap:10px;
+      grid-template-columns: repeat(4, 1fr);
+    }
+    @media (max-width: 900px){
+      .stats{grid-template-columns: repeat(2, 1fr);}
+    }
+    @media (max-width: 520px){
+      .stats{grid-template-columns:1fr}
+    }
+    .stat{
+      padding:12px 12px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.12);
+    }
+    .stat .k{color:var(--muted); font-size:12px}
+    .stat .v{margin-top:6px; font-size:20px; font-weight:850}
+    .stat .v .unit{font-size:12px; color:var(--muted); font-weight:650; margin-left:6px}
+    .muted{color:var(--muted)}
+    .small{font-size:12px}
+    .kbd{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
+
+    /* 桌機：表格（不強制 min-width，避免整頁水平捲軸） */
+    .tablewrap{
+      border-radius:12px;
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.12);
+      overflow:hidden;
+    }
+    table{width:100%; border-collapse:collapse;}
+    thead th{
+      background: rgba(15,27,51,.96);
+      border-bottom:1px solid var(--line);
+      font-size:12px;
+      color: rgba(255,255,255,.85);
+      text-align:left;
+      padding:12px 12px;
+      cursor:pointer;
+      user-select:none;
+      white-space:nowrap;
+    }
+    tbody td{
+      padding:12px 12px;
+      border-bottom:1px solid rgba(255,255,255,.06);
+      color: rgba(255,255,255,.88);
+      font-size:13px;
+      white-space:nowrap;
+    }
+    tbody tr:hover{background: rgba(110,168,255,.08)}
+
+    /* ✅ 路寬更清楚：大字、色彩、對齊 */
+    .col-width{width:170px;}
+    .widthCell{
+      font-weight:950;
+      letter-spacing:.2px;
+      font-size:15px;
+      color: rgba(255,255,255,.98);
+    }
+    .widthCell .m{
+      color: var(--accent2);
+      font-size:18px;
+      font-weight:950;
+    }
+    .widthBadge{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(124,240,196,.30);
+      background: rgba(124,240,196,.10);
+    }
+
+    /* ✅ 手機：卡片列表（避免任何橫向捲軸） */
+    .list{display:none; gap:10px; flex-direction:column;}
+    .item{
+      border:1px solid var(--line);
+      background: rgba(0,0,0,.12);
+      border-radius:12px;
+      padding:12px;
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap:10px;
+    }
+    .item .name{font-weight:850}
+    .item .meta{color:var(--muted); font-size:12px; margin-top:6px; display:flex; gap:10px; flex-wrap:wrap;}
+    .item .width{
+      align-self:flex-start;
+      font-weight:950;
+      font-size:18px;
+      color: var(--accent2);
+      padding:6px 10px;
+      border-radius:12px;
+      border:1px solid rgba(124,240,196,.30);
+      background: rgba(124,240,196,.10);
+      white-space:nowrap;
+    }
+
+    @media (max-width: 860px){
+      .tablewrap{display:none;}
+      .list{display:flex;}
+      tbody td, thead th{white-space:normal;}
+    }
+
+    .footerbar{
+      margin-top:12px;
+      display:flex; align-items:center; justify-content:space-between;
+      gap:10px; flex-wrap:wrap;
+      color: var(--muted); font-size:12px;
+    }
+    .pager{display:flex; gap:8px; align-items:center;}
+    .pager button{
+      padding:8px 10px; border-radius:10px;
+      border:1px solid var(--line); background: rgba(255,255,255,.06);
+      color: rgba(255,255,255,.88);
+      cursor:pointer;
+    }
+    .pager button:disabled{opacity:.45; cursor:not-allowed}
+  </style>
+</head>
+
+<body>
+<div class="wrap">
+
+  <div class="header">
+    <div class="title">
+      <h1>道路路寬查詢</h1>
+      <div class="subtitle">開啟頁面會自動讀取同層 <span class="kbd">road.csv</span>（你手動更新檔案即可）。</div>
+    </div>
+    <div class="badge" id="fileBadge">📄 road.csv：尚未載入</div>
+  </div>
+
+  <div class="card">
+    <div class="hd">
+      <div class="h"><span class="dot"></span>查詢</div>
+      <div class="pill">⌨︎ Enter 搜尋　·　點欄位標題可排序</div>
+    </div>
+
+    <div class="bd">
+      <div id="status" class="status warn">
+        <div class="icon">⏳</div>
+        <div>正在讀取 <span class="kbd">road.csv</span>…</div>
+      </div>
+
+      <div style="height:12px"></div>
+
+      <div class="controls">
+        <div class="field">
+          <label>路名關鍵字</label>
+          <input class="input" type="text" id="roadName" placeholder="例如：文心路、公益路、環中路…" disabled>
+        </div>
+        <div class="btnrow">
+          <button class="btn" id="searchBtn" onclick="queryRoadData()" disabled>搜尋</button>
+          <button class="btn secondary" id="clearBtn" onclick="resetUI()" disabled>清除</button>
+        </div>
+      </div>
+
+      <div style="height:10px"></div>
+
+      <!-- ✅ 路寬重點：快速篩選 -->
+      <div class="row2">
+        <div class="field">
+          <label>路寬至少（≥ 公尺）</label>
+          <input class="input" id="minWidth" type="number" step="0.1" placeholder="例如：12" disabled>
+        </div>
+        <div class="field">
+          <label>路寬最多（≤ 公尺）</label>
+          <input class="input" id="maxWidth" type="number" step="0.1" placeholder="例如：8" disabled>
+        </div>
+      </div>
+
+      <div style="height:10px"></div>
+
+      <div class="row3">
+        <div class="field">
+          <label>地區</label>
+          <select class="select" id="areaFilter" onchange="applyFilters()" disabled>
+            <option value="">全部地區</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>巷</label>
+          <select class="select" id="laneFilter" onchange="applyFilters()" disabled>
+            <option value="">全部巷</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>弄</label>
+          <select class="select" id="alleyFilter" onchange="applyFilters()" disabled>
+            <option value="">全部弄</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="height:10px"></div>
+
+      <div class="row2">
+        <div class="field">
+          <label>每頁筆數</label>
+          <select class="select" id="pageSize" onchange="renderResults()" disabled>
+            <option value="20">20</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+          </select>
+        </div>
+        <div class="field">
+          <label class="muted">提示</label>
+          <div class="pill">主要查路寬：可先搜路名，再用「≥ / ≤」快速縮小</div>
+        </div>
+      </div>
+
+      <div style="height:14px"></div>
+
+      <!-- ✅ 統計：多顯示路寬範圍 -->
+      <div class="stats">
+        <div class="stat">
+          <div class="k">載入筆數</div>
+          <div class="v" id="statTotal">—</div>
+        </div>
+        <div class="stat">
+          <div class="k">搜尋命中</div>
+          <div class="v" id="statHit">—</div>
+        </div>
+        <div class="stat">
+          <div class="k">目前顯示</div>
+          <div class="v" id="statShow">—</div>
+        </div>
+        <div class="stat">
+          <div class="k">路寬範圍（顯示結果）</div>
+          <div class="v" id="statRange">—</div>
+        </div>
+      </div>
+
+      <div style="height:14px"></div>
+
+      <div id="result"></div>
+
+      <div class="footerbar" id="footerbar" style="display:none;">
+        <div id="sortInfo">排序：—</div>
+        <div class="pager">
+          <button onclick="prevPage()" id="prevBtn">上一頁</button>
+          <span>第 <b id="pageNow">1</b> / <b id="pageMax">1</b> 頁</span>
+          <button onclick="nextPage()" id="nextBtn">下一頁</button>
+        </div>
+      </div>
+
+      <div class="muted small" style="margin-top:10px;">
+        CSV 欄位需包含：<span class="kbd">路名</span>、<span class="kbd">地區</span>、<span class="kbd">巷</span>、<span class="kbd">弄</span>、<span class="kbd">路寬</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // =========================
+  // State
+  // =========================
+  let csvData = [];
+  let searchData = [];
+  let viewData = [];
+
+  let sortState = { key: null, dir: 1 }; // 1 asc, -1 desc
+  let page = 1;
+
+  const $ = (id)=>document.getElementById(id);
+
+  // =========================
+  // CSV Parser (robust)
+  // =========================
+  function parseCSV(text){
+    if(!text || !text.trim()) return [];
+    text = text.replace(/\r\n/g,"\n").replace(/\r/g,"\n");
+
+    const rows = [];
+    let row = [];
+    let cur = "";
+    let inQuotes = false;
+
+    for(let i=0;i<text.length;i++){
+      const ch = text[i];
+
+      if(ch === '"'){
+        if(inQuotes && text[i+1] === '"'){ cur += '"'; i++; }
+        else inQuotes = !inQuotes;
+        continue;
+      }
+      if(!inQuotes && ch === ','){ row.push(cur); cur=""; continue; }
+      if(!inQuotes && ch === '\n'){ row.push(cur); rows.push(row); row=[]; cur=""; continue; }
+      cur += ch;
+    }
+    if(cur.length || row.length){ row.push(cur); rows.push(row); }
+
+    const headers = (rows.shift()||[]).map(h => (h||"").trim().replace(/^"|"$/g,""));
+    if(!headers.length) return [];
+
+    return rows
+      .filter(r => r.some(v => String(v||"").trim() !== ""))
+      .map(r => {
+        const o = {};
+        headers.forEach((h,idx)=> o[h] = (r[idx] ?? "").trim().replace(/^"|"$/g,""));
+        return o;
+      });
+  }
+
+  // =========================
+  // Helpers
+  // =========================
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, (m)=>({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+    }[m]));
+  }
+
+  function setStatus(type, html){
+    const el = $('status');
+    const icon = type==='ok'?'✅':type==='err'?'❌':type==='warn'?'⚠️':'⏳';
+    el.className = `status ${type}`;
+    el.innerHTML = `<div class="icon">${icon}</div><div>${html}</div>`;
+  }
+
+  // 將路寬轉成數值（可吃 "12公尺" / "12" / "12.5m"）
+  function widthToNumber(v){
+    const n = parseFloat(String(v ?? '').replace(/[^\d.]/g,''));
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function formatWidth(v){
+    const n = widthToNumber(v);
+    if(n === null) return { text: escapeHtml(v || '無資料'), num: null };
+    // 保留 0~1 位小數（你可調）
+    const pretty = (Math.round(n * 10) / 10).toString();
+    return { text: pretty, num: n };
+  }
+
+  function computeWidthRange(rows){
+    const nums = rows.map(r => widthToNumber(r['路寬'])).filter(n => n !== null);
+    if(!nums.length) return null;
+    nums.sort((a,b)=>a-b);
+    return { min: nums[0], max: nums[nums.length-1] };
+  }
+
+  // =========================
+  // Load CSV
+  // =========================
+  window.onload = () => loadCSV();
+
+  async function loadCSV(){
+    try{
+      setStatus('loading', `正在讀取 <span class="kbd">road.csv</span>…`);
+      $('fileBadge').textContent = '📄 road.csv：載入中…';
+
+      const url = `./road.csv?v=${Date.now()}`; // cache bust
+      const res = await fetch(url, { cache:'no-store' });
+      if(!res.ok) throw new Error(`HTTP ${res.status}：找不到 road.csv 或無法讀取`);
+
+      const text = await res.text();
+      csvData = parseCSV(text);
+      if(!csvData.length) throw new Error('road.csv 解析不到資料（可能為空或格式異常）');
+
+      // Enable UI
+      ['roadName','minWidth','maxWidth','areaFilter','laneFilter','alleyFilter','pageSize'].forEach(id => $(id).disabled = false);
+      $('searchBtn').disabled = false;
+      $('clearBtn').disabled = false;
+
+      $('statTotal').textContent = csvData.length.toLocaleString();
+      $('fileBadge').textContent = `📄 road.csv：已載入 ${csvData.length.toLocaleString()} 筆`;
+      setStatus('ok', `已載入 <b>${csvData.length.toLocaleString()}</b> 筆資料，可開始查詢。`);
+
+      $('roadName').focus();
+
+      // 即時套用路寬篩選（輸入變動就更新）
+      $('minWidth').addEventListener('input', debounce(()=>applyFilters(true), 250));
+      $('maxWidth').addEventListener('input', debounce(()=>applyFilters(true), 250));
+
+    }catch(err){
+      console.error(err);
+      $('fileBadge').textContent = '📄 road.csv：載入失敗';
+      setStatus('err',
+        `讀取失敗：${escapeHtml(err.message)}<br><br>`+
+        `請確認：<br>`+
+        `1) <span class="kbd">tc-road.html</span> 與 <span class="kbd">road.csv</span> 是否同一資料夾<br>`+
+        `2) GitHub Pages 已部署完成（用網址直接開 road.csv 會有內容）`
+      );
+    }
+  }
+
+  // Enter to search
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter' && document.activeElement === $('roadName') && !$('roadName').disabled){
+      queryRoadData();
+    }
+  });
+
+  function debounce(fn, ms){
+    let t = null;
+    return (...args)=>{
+      clearTimeout(t);
+      t = setTimeout(()=>fn(...args), ms);
+    };
+  }
+
+  // =========================
+  // Search + Filters
+  // =========================
+  function queryRoadData(){
+    const kw = $('roadName').value.trim();
+    if(!csvData.length){
+      setStatus('warn','資料尚未載入完成，請稍候或重整。'); return;
+    }
+    if(!kw){
+      setStatus('warn','請輸入路名關鍵字再搜尋。');
+      $('result').innerHTML = '';
+      $('footerbar').style.display = 'none';
+      return;
+    }
+
+    searchData = csvData.filter(r => String(r['路名']||'').includes(kw));
+    if(!searchData.length){
+      setStatus('warn', `查無包含「<b>${escapeHtml(kw)}</b>」的資料。`);
+      resetFiltersOnly();
+      updateStats(0,0,null);
+      $('result').innerHTML = '';
+      $('footerbar').style.display = 'none';
+      return;
+    }
+
+    populateFilters(searchData);
+    sortState = { key:null, dir:1 };
+    page = 1;
+    applyFilters(true);
+
+    setStatus('ok', `找到 <b>${searchData.length.toLocaleString()}</b> 筆命中。可用「路寬 ≥ / ≤」快速縮小。`);
+  }
+
+  function applyFilters(keepPage){
+    if(!searchData.length) return;
+
+    const a = $('areaFilter').value;
+    const l = $('laneFilter').value;
+    const al = $('alleyFilter').value;
+
+    const minW = $('minWidth').value === '' ? null : parseFloat($('minWidth').value);
+    const maxW = $('maxWidth').value === '' ? null : parseFloat($('maxWidth').value);
+
+    viewData = searchData.filter(r => {
+      const okA = !a || r['地區'] === a;
+      const okL = !l || r['巷'] === l;
+      const okAl= !al || r['弄'] === al;
+
+      const wn = widthToNumber(r['路寬']);
+      const okMin = (minW === null) || (wn !== null && wn >= minW);
+      const okMax = (maxW === null) || (wn !== null && wn <= maxW);
+
+      return okA && okL && okAl && okMin && okMax;
+    });
+
+    if(!keepPage) page = 1;
+    renderResults();
+  }
+
+  function populateFilters(data){
+    const areaSet = new Set(data.map(r => r['地區']).filter(v => v && v !== '無資料'));
+    const laneSet = new Set(data.map(r => r['巷']).filter(v => v && v !== '無資料'));
+    const alleySet= new Set(data.map(r => r['弄']).filter(v => v && v !== '無資料'));
+
+    $('areaFilter').innerHTML = '<option value="">全部地區</option>';
+    $('laneFilter').innerHTML = '<option value="">全部巷</option>';
+    $('alleyFilter').innerHTML= '<option value="">全部弄</option>';
+
+    [...areaSet].sort().forEach(v => $('areaFilter').add(new Option(v, v)));
+    [...laneSet].sort().forEach(v => $('laneFilter').add(new Option(v, v)));
+    [...alleySet].sort().forEach(v => $('alleyFilter').add(new Option(v, v)));
+  }
+
+  function resetFiltersOnly(){
+    $('areaFilter').value = '';
+    $('laneFilter').value = '';
+    $('alleyFilter').value = '';
+    $('minWidth').value = '';
+    $('maxWidth').value = '';
+    $('areaFilter').innerHTML = '<option value="">全部地區</option>';
+    $('laneFilter').innerHTML = '<option value="">全部巷</option>';
+    $('alleyFilter').innerHTML = '<option value="">全部弄</option>';
+  }
+
+  function resetUI(){
+    $('roadName').value = '';
+    resetFiltersOnly();
+    $('result').innerHTML = '';
+    $('footerbar').style.display = 'none';
+    searchData = [];
+    viewData = [];
+    sortState = { key:null, dir:1 };
+    page = 1;
+    updateStats(null,null,null);
+    setStatus('ok','已清除。請重新輸入路名查詢。');
+    $('roadName').focus();
+  }
+
+  // =========================
+  // Sorting + Pagination + Rendering
+  // =========================
+  function sortBy(key){
+    if(!viewData.length) return;
+    if(sortState.key === key) sortState.dir *= -1;
+    else sortState = { key, dir: 1 };
+    renderResults(true);
+  }
+
+  function getSortedData(){
+    const { key, dir } = sortState;
+    const arr = viewData.slice();
+    if(!key) return arr;
+
+    arr.sort((a,b)=>{
+      if(key === '路寬'){
+        const an = widthToNumber(a['路寬']);
+        const bn = widthToNumber(b['路寬']);
+        if(an === null && bn === null) return String(a['路寬']||'').localeCompare(String(b['路寬']||''),'zh-Hant') * dir;
+        if(an === null) return 1;
+        if(bn === null) return -1;
+        return (an - bn) * dir;
+      }
+      return String(a[key]||'').localeCompare(String(b[key]||''),'zh-Hant') * dir;
+    });
+    return arr;
+  }
+
+  function renderResults(keepPage=false){
+    const resultDiv = $('result');
+
+    // Stats
+    const range = computeWidthRange(viewData);
+    updateStats(csvData.length, searchData.length, range);
+
+    if(!viewData.length){
+      resultDiv.innerHTML = `<div class="status warn"><div class="icon">⚠️</div><div>沒有符合目前篩選條件的資料。</div></div>`;
+      $('footerbar').style.display = 'none';
+      return;
+    }
+
+    const pageSize = parseInt($('pageSize').value, 10) || 50;
+    const sorted = getSortedData();
+
+    const maxPage = Math.max(1, Math.ceil(sorted.length / pageSize));
+    if(!keepPage) page = 1;
+    if(page > maxPage) page = maxPage;
+
+    const start = (page - 1) * pageSize;
+    const slice = sorted.slice(start, start + pageSize);
+
+    // Footer
+    $('footerbar').style.display = 'flex';
+    $('pageNow').textContent = page;
+    $('pageMax').textContent = maxPage;
+    $('prevBtn').disabled = page <= 1;
+    $('nextBtn').disabled = page >= maxPage;
+
+    const sortLabel = sortState.key ? `${sortState.key}（${sortState.dir===1?'升冪':'降冪'}）` : '未排序';
+    $('sortInfo').textContent = `排序：${sortLabel}`;
+
+    // Render: Desktop table + Mobile list (no horizontal scroll)
+    resultDiv.innerHTML = `
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:70px">#</th>
+              <th onclick="sortBy('路名')">路名</th>
+              <th onclick="sortBy('地區')">地區</th>
+              <th onclick="sortBy('巷')">巷</th>
+              <th onclick="sortBy('弄')">弄</th>
+              <th class="col-width" onclick="sortBy('路寬')">路寬（公尺）</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${slice.map((r, idx)=>{
+              const w = formatWidth(r['路寬']);
+              return `
+                <tr>
+                  <td>${start + idx + 1}</td>
+                  <td>${escapeHtml(r['路名'] || '無資料')}</td>
+                  <td>${escapeHtml(r['地區'] || '無資料')}</td>
+                  <td>${escapeHtml(r['巷'] || '無資料')}</td>
+                  <td>${escapeHtml(r['弄'] || '無資料')}</td>
+                  <td class="widthCell">
+                    <span class="widthBadge">📏 <span class="m">${escapeHtml(w.text)}</span> m</span>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="list">
+        ${slice.map((r, idx)=>{
+          const w = formatWidth(r['路寬']);
+          return `
+            <div class="item">
+              <div>
+                <div class="name">${escapeHtml(r['路名'] || '無資料')}</div>
+                <div class="meta">
+                  <span>📍 ${escapeHtml(r['地區'] || '無資料')}</span>
+                  <span>巷：${escapeHtml(r['巷'] || '—')}</span>
+                  <span>弄：${escapeHtml(r['弄'] || '—')}</span>
+                  <span class="muted">#${start + idx + 1}</span>
+                </div>
+              </div>
+              <div class="width">📏 ${escapeHtml(w.text)} m</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `;
+  }
+
+  function updateStats(total, hit, range){
+    if(total !== null) $('statTotal').textContent = Number(total).toLocaleString();
+    if(hit !== null) $('statHit').textContent = Number(hit).toLocaleString();
+    $('statShow').textContent = viewData.length ? viewData.length.toLocaleString() : '0';
+
+    if(!range){
+      $('statRange').innerHTML = `—`;
+      return;
+    }
+    const min = Math.round(range.min * 10)/10;
+    const max = Math.round(range.max * 10)/10;
+    $('statRange').innerHTML = `<span style="color:var(--accent2); font-weight:950;">${min}</span> ～ <span style="color:var(--accent2); font-weight:950;">${max}</span><span class="unit">m</span>`;
+  }
+
+  function prevPage(){ page = Math.max(1, page-1); renderResults(true); }
+  function nextPage(){
+    const pageSize = parseInt($('pageSize').value, 10) || 50;
+    const maxPage = Math.max(1, Math.ceil(viewData.length / pageSize));
+    page = Math.min(maxPage, page+1);
+    renderResults(true);
+  }
+</script>
+</body>
+</html>

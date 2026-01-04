@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>案件中文轉換程式全能版 by Xcrab</title>
+  <script src="https://unpkg.com/pinyin-pro"></script>
+  <style>
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f9f9f9;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding-top: 50px;
+      margin: 0;
+    }
+    .container {
+      background: white;
+      padding: 30px 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      text-align: center;
+      width: 90%;
+      max-width: 800px;
+    }
+    h2 {
+      margin-bottom: 20px;
+      color: #333;
+    }
+    input {
+      width: 80%;
+      padding: 10px;
+      font-size: 16px;
+      margin-bottom: 20px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin: 5px;
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      background-color: #007BFF;
+      color: white;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .result-block {
+      margin-top: 20px;
+      font-size: 18px;
+      line-height: 2;
+      text-align: left;
+    }
+    .result-item {
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .result-label {
+      font-weight: bold;
+      width: 140px;
+    }
+    .result-text {
+      flex-grow: 1;
+      font-weight: bold;
+    }
+    .copy-btn {
+      margin-left: 10px;
+      padding: 5px 10px;
+      font-size: 14px;
+      cursor: pointer;
+      border: 1px solid #007BFF;
+      background-color: white;
+      color: #007BFF;
+      border-radius: 5px;
+      transition: background-color 0.3s, color 0.3s;
+    }
+    .copy-btn:hover {
+      background-color: #007BFF;
+      color: white;
+    }
+    .copied-tip {
+      margin-left: 10px;
+      color: green;
+      font-size: 14px;
+      opacity: 0;
+      transition: opacity 0.5s;
+    }
+    .copied-tip.show {
+      opacity: 1;
+    }
+    /* 特別給每個案名不同顏色 */
+    .hyphen-style { color: #007BFF; }
+    .camel-style { color: #28a745; }
+    .chinese-style { color: #ff5722; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>案件中文轉換程式全能版 v1.02 by Xcrab</h2>
+
+  <input type="text" id="inputText" placeholder="請輸入中文或中英混合內容">
+  <br>
+  <button onclick="convert()">轉換</button>
+
+  <div id="result" class="result-block"></div>
+</div>
+
+<script>
+// 將含變音符的字母轉成純 ASCII（é→e、ü→u 等）
+function toASCII(s) {
+  if (!s) return s;
+  // 先用 Unicode 正規化把變音拆成組合符號，再移除
+  try {
+    s = s.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+  } catch (e) {} // 老舊瀏覽器容錯
+  // 安全保險：直接把 ü 系列轉成 u（大小寫都處理）
+  return s.replace(/[üǖǘǚǜ]/gi, m => (m === m.toUpperCase() ? 'U' : 'u'));
+}
+
+// 主轉換程式（保留你的流程，但每步都套用 toASCII）
+function convert() {
+  const text = document.getElementById('inputText').value.trim();
+  let resultParts = [];
+  let tempEnglish = '';
+
+  for (const char of text) {
+    if (/[\u4e00-\u9fff]/.test(char)) {
+      if (tempEnglish) { resultParts.push(toASCII(tempEnglish.toLowerCase())); tempEnglish = ''; }
+      const py = pinyinPro.pinyin(char, { toneType: 'none' }).toLowerCase();
+      resultParts.push(toASCII(py));
+    } else if (/[a-zA-Z0-9]/.test(char)) {
+      tempEnglish += char;
+    } else {
+      if (tempEnglish) { resultParts.push(toASCII(tempEnglish.toLowerCase())); tempEnglish = ''; }
+    }
+  }
+  if (tempEnglish) resultParts.push(toASCII(tempEnglish.toLowerCase()));
+
+  // 產生三種結果（再做一次清洗，確保只有 a-z0-9-）
+  const hyphenResult = toASCII(resultParts.join('-'))
+    .replace(/[^a-z0-9-]+/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  const camelCaseResult = resultParts
+    .map(w => {
+      w = toASCII(w).replace(/[^a-z0-9]/g, '');
+      return w.charAt(0).toUpperCase() + w.slice(1);
+    })
+    .join('');
+
+  const chineseNameResult = `${hyphenResult}(${text})`;
+
+  const resultDiv = document.getElementById('result');
+  resultDiv.innerHTML = `
+    <div class="result-item">
+      <span class="result-label">網頁網址用(網頁)：</span>
+      <span id="text1" class="result-text hyphen-style">${hyphenResult}</span>
+      <button class="copy-btn" onclick="copyText('text1', this)">複製</button><span class="copied-tip">已複製</span>
+    </div>
+    <div class="result-item">
+      <span class="result-label">網頁圖片資料夾用(網頁)：</span>
+      <span id="text2" class="result-text camel-style">${camelCaseResult}</span>
+      <button class="copy-btn" onclick="copyText('text2', this)">複製</button><span class="copied-tip">已複製</span>
+    </div>
+    <div class="result-item">
+      <span class="result-label">放在上網資料夾用(本機)：</span>
+      <span id="text3" class="result-text chinese-style">${chineseNameResult}</span>
+      <button class="copy-btn" onclick="copyText('text3', this)">複製</button><span class="copied-tip">已複製</span>
+    </div>
+  `;
+}
+
+// 複製功能維持不變
+function copyText(spanId, btnElement) {
+  const text = document.getElementById(spanId).innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const tip = btnElement.nextElementSibling;
+    tip.classList.add('show');
+    setTimeout(() => tip.classList.remove('show'), 1500);
+  });
+}
+
+document.getElementById('inputText').addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); convert(); }
+});
+</script>
+
+
+</body>
+</html>
