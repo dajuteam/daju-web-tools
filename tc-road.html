@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>台中道路資訊查詢（API 版）</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .container { max-width: 900px; margin: 0 auto; text-align: center; }
+    input, button, select { padding: 10px; margin: 5px; font-size: 16px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background-color: #f4f4f4; }
+    .road-width { color: red; font-weight: bold; }
+    #status { margin: 20px 0; font-size: 16px; padding: 15px; border-radius: 4px; }
+    .success { color: #2e7d32; background-color: #e8f5e9; border: 1px solid #4caf50; }
+    .error { color: #d32f2f; background-color: #ffebee; border: 1px solid #f44336; }
+    .loading { color: #f57f17; background-color: #fffde7; border: 1px solid #ffeb3b; }
+    .search-section { margin: 30px 0; }
+    #roadName { width: 320px; padding: 12px; font-size: 16px; border: 2px solid #ddd; border-radius: 4px; }
+    .search-btn { background-color: #2196F3; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 4px; cursor: pointer; margin-left: 10px; }
+    .search-btn:hover { background-color: #1976D2; }
+    .search-btn:disabled { background-color: #cccccc; cursor: not-allowed; }
+    .hint { color:#666; font-size:13px; margin-top:6px; }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>道路資訊查詢（API 版）</h1>
+
+    <div id="status" class="success">
+      ✅ 已就緒：輸入路名關鍵字後搜尋（資料來源：臺中市 OpenData API）
+    </div>
+
+    <div class="search-section">
+      <input type="text" id="roadName" placeholder="輸入路名關鍵字（例：衛道、文心、環中）">
+      <button class="search-btn" id="searchBtn" onclick="queryRoadData()">搜尋</button>
+      <div class="hint">提示：資料量大時會自動分頁抓取；同關鍵字短時間重查會走快取。</div>
+    </div>
+
+    <div id="filters" style="display:none;">
+      <select id="areaFilter" onchange="applyFilters()">
+        <option value="">所有地區</option>
+      </select>
+      <select id="laneFilter" onchange="applyFilters()">
+        <option value="">所有巷</option>
+      </select>
+      <select id="alleyFilter" onchange="applyFilters()">
+        <option value="">所有弄</option>
+      </select>
+    </div>
+
+    <div id="result"></div>
+  </div>
+
+  <script>
+    // =========================
+    // ✅ 設定區：API
+    // =========================
+    const API_BASE = "https://datacenter.taichung.gov.tw/swagger/OpenData/c807c4ef-1942-4341-abbc-883fde09f8b2";
+    // ↑ 若你之後確認 Swagger 真正的資料 API 端點不是這個 UI URL，
+    //   只要把它換成「回 JSON 的那支」即可（其餘程式可不動）。
+
+    const DEFAULT_LIMIT = 1000;        // API 預設每頁 1000
+    const MAX_TOTAL_ROWS = 20000;      // 安全上限：避免關鍵字太短把全市都撈爆
+    const CACHE_TTL_MS = 10 * 60 * 1000; // sessionStorage 快取 10 分鐘
+
+    // =========================
+    // 狀態
+    // =========================
+    let apiData = [];
+    let filteredData = [];
+
+    // =========================
+    // 小工具：狀態顯示
+    // =========================
+    function setStatus(type, html) {
+      const statusDiv = document.getElementById("status");
+      statusDiv.className = type;
+      statusDiv.innerHTML = html;
+    }
+
+    // =========================
+    // 小工具：從多種候選 key 取值（容錯）
+    // =========================
+    function pick(obj, keys, fallback = "無資料") {
+      for (const k of keys) {
+        if (obj && Object.prototype.hasOwnProperty.call(obj, k)) {
+          const v = obj[k];
+          if (v !== undefined && v !== null && String(v).trim() !== "") return String(v);
+        }
+      }
+      return fallback;
+    }
+
+    // 你的顯示欄位（候選 key）
+    const KEY_ROAD  = ["路名","ROADNAME","road_name","name","道路名稱"];
+    const KEY_AREA  = ["地區","區","行政區","DISTRICT","district","轄區"];
+    const KEY_LANE  = ["巷","LANE","lane"];
+    const KEY_ALLEY = ["弄","ALLEY","alley"];
+    const KEY_WIDTH = ["路寬","路寬(公尺)","ROADWIDTH","width","路幅","路寬度"];
+
+    // =========================
+    // ✅ API：取資料（支援 q / filters / fields / offset / limit）
+    // =========================
+    function buildApiUrl(params) {
+      const usp = new URLSearchParams();
+      for (const [k, v] of Object.entries(params)) {
+        if (v === undefined || v === null || v === "") continue;
+        usp.set(k, String(v));
+      }
+      return `${API_BASE}?${usp.toString()}`;
+    }
+
+    function normalizeRecords(payload) {
+      // 常見格式：
+      // 1) Array
+      // 2) { result: { records: [...] } }
+      // 3) { records: [...] }
+      // 4) { data: [...] }
+      if (Array.isArray(payload)) return payload;
+      if (payload?.result?.records && Array.isArray(payload.result.records)) return payload.result.records;
+      if (payload?.records && Array.isArray(payload.records)) return payload.records;
+      if (payload?.data && Array.isArray(payload.data)) return payload.data;
+      return [];
+    }
+
+    function cacheKeyForQuery(q) {
+      return `ROAD_API_CACHE::${q}`;
+    }
+
+    function getCache(q) {
+      try {
+        const raw = sessionStorage.getItem(cacheKeyForQuery(q));
+        if (!raw) return null;
+        const obj = JSON.parse(raw);
+        if (!obj || !obj.ts || !obj.data) return null;
+        if (Date.now() - obj.ts > CACHE_TTL_MS) return null;
+        return obj.data;
+      } catch {
+        return null;
+      }
+    }
+
+    function setCache(q, data) {
+      try {
+        sessionStorage.setItem(cacheKeyForQuery(q), JSON.stringify({ ts: Date.now(), data }));
+      } catch {}
+    }
+
+    async function fetchAllByQuery(q) {
+      const cached = getCache(q);
+      if (cached) return cached;
+
+      let all = [];
+      let offset = 0;
+
+      while (true) {
+        // 用 q 做全文檢索（你提供的參數）
+        const url = buildApiUrl({
+          q,
+          limit: DEFAULT_LIMIT,
+          offset
+          // fields: "路名,地區,巷,弄,路寬"  // 如果你確認欄位名完全一致，可開啟以減少流量
+        });
+
+        const res = await fetch(url, { method: "GET" });
+        if (!res.ok) throw new Error(`API HTTP ${res.status}`);
+
+        const payload = await res.json();
+        const rows = normalizeRecords(payload);
+
+        all = all.concat(rows);
+
+        // 分頁結束條件
+        if (rows.length < DEFAULT_LIMIT) break;
+
+        offset += DEFAULT_LIMIT;
+
+        // 安全上限
+        if (all.length >= MAX_TOTAL_ROWS) break;
+      }
+
+      setCache(q, all);
+      return all;
+    }
+
+    // =========================
+    // ✅ 查詢：按鈕 / Enter
+    // =========================
+    async function queryRoadData() {
+      const roadName = document.getElementById("roadName").value.trim();
+      const filtersDiv = document.getElementById("filters");
+      const resultDiv = document.getElementById("result");
+
+      if (!roadName) {
+        resultDiv.innerHTML = '<p style="color:red; padding:10px;">請輸入路名的關鍵字！</p>';
+        filtersDiv.style.display = "none";
+        return;
+      }
+
+      // 建議：避免一個字撈爆
+      if (roadName.length < 2) {
+        resultDiv.innerHTML = '<p style="color:red; padding:10px;">關鍵字太短，建議至少 2 個字（避免撈到過多資料）。</p>';
+        filtersDiv.style.display = "none";
+        return;
+      }
+
+      try {
+        document.getElementById("searchBtn").disabled = true;
+        setStatus("loading", `🔄 查詢中：正在向 API 搜尋「${roadName}」...`);
+
+        apiData = await fetchAllByQuery(roadName);
+
+        // 你原本是用 includes(roadName) 比對「路名」欄位
+        // 這裡仍保留：再做一次前端精準過濾（避免 q 命中其它欄位造成雜訊）
+        filteredData = apiData.filter(row => {
+          const rn = pick(row, KEY_ROAD, "");
+          return rn.includes(roadName);
+        });
+
+        if (filteredData.length === 0) {
+          resultDiv.innerHTML = `<p style="padding:10px;">沒有找到包含「${roadName}」的道路資料。</p>`;
+          filtersDiv.style.display = "none";
+          setStatus("success", `✅ API 查詢完成，但無符合「路名包含 ${roadName}」的資料（q 命中可能在其他欄位）。`);
+          return;
+        }
+
+        populateFilters();
+        filtersDiv.style.display = "block";
+        displayResults(filteredData);
+
+        setStatus("success", `✅ 查詢完成：找到 ${filteredData.length} 筆「路名包含 ${roadName}」的資料（API 回傳 ${apiData.length} 筆）。`);
+
+        // 若觸發上限提醒
+        if (apiData.length >= MAX_TOTAL_ROWS) {
+          setStatus("loading", `⚠️ 資料量可能過大：已達上限 ${MAX_TOTAL_ROWS} 筆（建議關鍵字再更精準，例如加上「路/街/大道」）。`);
+        }
+      } catch (err) {
+        console.error(err);
+        setStatus("error", `❌ 查詢失敗：${err.message}<br>可能原因：API 端點不是回 JSON 的那支、或瀏覽器 CORS 被擋。`);
+        resultDiv.innerHTML = '';
+        filtersDiv.style.display = "none";
+      } finally {
+        document.getElementById("searchBtn").disabled = false;
+      }
+    }
+
+    // =========================
+    // 篩選器：沿用你原本邏輯
+    // =========================
+    function populateFilters() {
+      const areaSet = new Set(filteredData.map(row => pick(row, KEY_AREA, "")).filter(v => v && v !== "無資料"));
+      const laneSet = new Set(filteredData.map(row => pick(row, KEY_LANE, "")).filter(v => v && v !== "無資料"));
+      const alleySet = new Set(filteredData.map(row => pick(row, KEY_ALLEY, "")).filter(v => v && v !== "無資料"));
+
+      const areaFilter = document.getElementById("areaFilter");
+      const laneFilter = document.getElementById("laneFilter");
+      const alleyFilter = document.getElementById("alleyFilter");
+
+      areaFilter.innerHTML = '<option value="">所有地區</option>';
+      laneFilter.innerHTML = '<option value="">所有巷</option>';
+      alleyFilter.innerHTML = '<option value="">所有弄</option>';
+
+      [...areaSet].sort().forEach(area => {
+        const opt = document.createElement("option");
+        opt.value = area;
+        opt.textContent = area;
+        areaFilter.appendChild(opt);
+      });
+
+      [...laneSet].sort().forEach(lane => {
+        const opt = document.createElement("option");
+        opt.value = lane;
+        opt.textContent = lane;
+        laneFilter.appendChild(opt);
+      });
+
+      [...alleySet].sort().forEach(alley => {
+        const opt = document.createElement("option");
+        opt.value = alley;
+        opt.textContent = alley;
+        alleyFilter.appendChild(opt);
+      });
+    }
+
+    function applyFilters() {
+      const areaFilter = document.getElementById("areaFilter").value;
+      const laneFilter = document.getElementById("laneFilter").value;
+      const alleyFilter = document.getElementById("alleyFilter").value;
+
+      const results = filteredData.filter(row => {
+        const a = pick(row, KEY_AREA, "無資料");
+        const l = pick(row, KEY_LANE, "無資料");
+        const al = pick(row, KEY_ALLEY, "無資料");
+        const areaMatch = !areaFilter || a === areaFilter;
+        const laneMatch = !laneFilter || l === laneFilter;
+        const alleyMatch = !alleyFilter || al === alleyFilter;
+        return areaMatch && laneMatch && alleyMatch;
+      });
+
+      displayResults(results);
+    }
+
+    function displayResults(results) {
+      const resultDiv = document.getElementById("result");
+      const filtersDiv = document.getElementById("filters");
+
+      if (!results || results.length === 0) {
+        resultDiv.innerHTML = '<p style="padding:10px;">沒有符合篩選條件的資料。</p>';
+        return;
+      }
+
+      let html = `
+        <p style="margin:20px 0; font-weight:bold;">找到 ${results.length} 筆資料：</p>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>路名</th>
+              <th>地區</th>
+              <th>巷</th>
+              <th>弄</th>
+              <th>路寬</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      results.forEach((item, idx) => {
+        const rn = pick(item, KEY_ROAD);
+        const ar = pick(item, KEY_AREA);
+        const ln = pick(item, KEY_LANE);
+        const ay = pick(item, KEY_ALLEY);
+        const wd = pick(item, KEY_WIDTH);
+
+        html += `
+          <tr>
+            <td>${idx + 1}</td>
+            <td>${rn}</td>
+            <td>${ar}</td>
+            <td>${ln}</td>
+            <td>${ay}</td>
+            <td class="road-width">${wd}</td>
+          </tr>
+        `;
+      });
+
+      html += `
+          </tbody>
+        </table>
+      `;
+
+      resultDiv.innerHTML = html;
+      filtersDiv.style.display = "block";
+    }
+
+    // Enter 搜尋
+    document.getElementById("roadName").addEventListener("keypress", function(e) {
+      if (e.key === "Enter") queryRoadData();
+    });
+  </script>
+</body>
+</html>
