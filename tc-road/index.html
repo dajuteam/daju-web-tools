@@ -11,6 +11,43 @@
      * - Toggle: data-theme="dark"
      * - Persist: localStorage key = TC_ROAD_THEME
      * ========================================================= */
+    /* ============ Bigger Typography (Global) ============ */
+
+/* 1) 整體字放大（等於全站 +12% 左右） */
+body{ font-size: 17px; }
+
+/* 2) 標題更大 */
+h1{ font-size: 40px; }
+
+/* 3) 副標 / badge / pill 提升可讀性 */
+.subtitle{ font-size: 15px; }
+.badge{ font-size: 13px; }
+.pill{ font-size: 13px; }
+
+/* 4) 表單：label / input / select / button 都加大 */
+.field label{ font-size: 13px; }
+.input, .select{ font-size: 16px; padding: 14px 14px; }
+.btn{ font-size: 16px; padding: 13px 16px; }
+.pager button{ font-size: 14px; }
+
+/* 5) 統計卡：數字更醒目 */
+.stat .k{ font-size: 13px; }
+.stat .v{ font-size: 24px; }
+
+/* 6) 表格：整體字級 + 路寬再更強一點 */
+thead th{ font-size: 13px; padding: 14px 14px; }
+tbody td{ font-size: 15px; padding: 14px 14px; }
+.widthCell{ font-size: 16px; }
+.widthCell .m{ font-size: 20px; }
+.widthBadge{ padding: 8px 12px; }
+
+/* 7) 手機卡片：路寬更大更醒目 */
+.item .name{ font-size: 16px; }
+.item .meta{ font-size: 13px; }
+.item .width{ font-size: 20px; padding: 8px 12px; }
+
+/* 8) 狀態框也放大一點 */
+.status{ font-size: 15px; }
 
     :root{
       --shadow: 0 12px 40px rgba(0,0,0,.12);
@@ -936,5 +973,6 @@
 </script>
 </body>
 </html>
+
 
 
