@@ -5,81 +5,160 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>道路路寬查詢</title>
   <style>
+    /* =========================================================
+     * THEME SYSTEM
+     * - Default: Light
+     * - Toggle: data-theme="dark"
+     * - Persist: localStorage key = TC_ROAD_THEME
+     * ========================================================= */
+
     :root{
+      --shadow: 0 12px 40px rgba(0,0,0,.12);
+      --radius:14px;
+      --ring: 0 0 0 4px rgba(0, 123, 255, .18);
+
+      /* Accent (both themes) */
+      --accent:#2f7dff;
+      --accent2:#10b981;   /* 路寬主色 */
+      --warn:#ffb020;
+      --danger:#ef4444;
+
+      /* Light default */
+      --bg:#f5f7fb;
+      --bg2:#eef2ff;
+      --card:#ffffff;
+      --card2:#f8fafc;
+      --line:rgba(0,0,0,.10);
+      --muted:rgba(0,0,0,.60);
+      --text:rgba(0,0,0,.88);
+      --head:rgba(0,0,0,.92);
+      --pill:rgba(0,0,0,.04);
+      --tableHead:#f3f6ff;
+      --rowHover:rgba(47,125,255,.06);
+      --inputBg:#ffffff;
+      --inputText:rgba(0,0,0,.9);
+      --selectOptionBg:#ffffff;
+      --selectOptionText:rgba(0,0,0,.9);
+      color-scheme: light;
+    }
+
+    /* Dark theme override */
+    html[data-theme="dark"]{
       --bg:#0b1220;
+      --bg2:#0b1220;
       --card:#0f1b33;
+      --card2:#0d1730;
       --line:rgba(255,255,255,.10);
       --muted:rgba(255,255,255,.66);
       --text:rgba(255,255,255,.92);
-      --accent:#6ea8ff;
-      --accent2:#7cf0c4;
-      --danger:#ff6b6b;
-      --warn:#ffcc66;
-      --ok:#6ee7b7;
-      --shadow: 0 12px 40px rgba(0,0,0,.35);
-      --radius:14px;
-
-      /* ✅ 深色 select 下拉選單可讀性 */
+      --head:rgba(255,255,255,.96);
+      --pill:rgba(0,0,0,.18);
+      --tableHead:rgba(15,27,51,.96);
+      --rowHover:rgba(110,168,255,.08);
+      --inputBg:rgba(0,0,0,.22);
+      --inputText:rgba(255,255,255,.92);
+      --selectOptionBg:#0b1220;
+      --selectOptionText:rgba(255,255,255,.92);
       color-scheme: dark;
     }
+
+    /* =========================================================
+     * BASE
+     * ========================================================= */
     *{box-sizing:border-box}
     body{
       margin:0; padding:22px;
       font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, "Noto Sans TC", "PingFang TC", sans-serif;
       background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(47,125,255,.14), transparent 60%),
+        radial-gradient(900px 500px at 90% 0%, rgba(16,185,129,.10), transparent 55%),
+        radial-gradient(1000px 700px at 50% 120%, rgba(255,176,32,.08), transparent 60%),
+        var(--bg);
+      color:var(--text);
+      overflow-x:hidden;
+    }
+    html[data-theme="dark"] body{
+      background:
         radial-gradient(1200px 600px at 10% -10%, rgba(110,168,255,.22), transparent 60%),
         radial-gradient(900px 500px at 90% 0%, rgba(124,240,196,.14), transparent 55%),
         radial-gradient(1000px 700px at 50% 120%, rgba(255,204,102,.10), transparent 60%),
         var(--bg);
-      color:var(--text);
-      overflow-x:hidden; /* ✅ 主介面不出現橫向捲軸 */
     }
+
     .wrap{max-width:1100px; margin:0 auto;}
     .header{
       display:flex; align-items:flex-end; justify-content:space-between;
-      gap:16px; margin-bottom:14px; flex-wrap:wrap;
+      gap:12px; margin-bottom:14px; flex-wrap:wrap;
     }
     .title{display:flex; flex-direction:column; gap:6px;}
-    h1{margin:0; font-size:36px; letter-spacing:.2px;}
+    h1{margin:0; font-size:34px; letter-spacing:.2px; color:var(--head);}
     .subtitle{color:var(--muted); font-size:13px}
+
     .badge{
       display:inline-flex; gap:8px; align-items:center;
       padding:8px 10px; border:1px solid var(--line); border-radius:999px;
-      background:rgba(255,255,255,.04);
+      background:var(--pill);
       color:var(--muted); font-size:12px;
       white-space:nowrap;
     }
 
+    /* Theme toggle button */
+    .toggle{
+      display:inline-flex; align-items:center; gap:8px;
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:var(--pill);
+      color:var(--text);
+      cursor:pointer;
+      font-size:12px;
+      font-weight:750;
+      user-select:none;
+      transition:.2s;
+    }
+    .toggle:hover{transform: translateY(-1px)}
+    .toggle:active{transform: translateY(0px)}
+    .toggle .dot{
+      width:10px; height:10px; border-radius:999px;
+      background: rgba(47,125,255,.35);
+      box-shadow: 0 0 0 4px rgba(47,125,255,.10);
+    }
+    html[data-theme="dark"] .toggle .dot{
+      background: rgba(110,168,255,.35);
+      box-shadow: 0 0 0 4px rgba(110,168,255,.10);
+    }
+
     .card{
-      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      background: linear-gradient(180deg, rgba(255,255,255,.80), rgba(255,255,255,.55));
       border:1px solid var(--line);
       border-radius:var(--radius);
       box-shadow:var(--shadow);
       overflow:hidden;
     }
+    html[data-theme="dark"] .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+    }
     .card .hd{
       padding:14px 16px;
       display:flex; align-items:center; justify-content:space-between;
       border-bottom:1px solid var(--line);
-      background: rgba(0,0,0,.08);
+      background: rgba(0,0,0,.04);
       gap:12px; flex-wrap:wrap;
     }
+    html[data-theme="dark"] .card .hd{ background: rgba(0,0,0,.08); }
+
     .card .hd .h{
-      font-weight:750; letter-spacing:.2px; font-size:14px;
+      font-weight:850; letter-spacing:.2px; font-size:14px;
       display:flex; align-items:center; gap:10px;
-    }
-    .dot{
-      width:10px; height:10px; border-radius:999px;
-      background:rgba(255,255,255,.18);
-      box-shadow:0 0 0 4px rgba(110,168,255,.10);
+      color:var(--head);
     }
     .pill{
       display:inline-flex; align-items:center; gap:6px;
       padding:6px 10px;
       border-radius:999px;
       border:1px solid var(--line);
-      background: rgba(0,0,0,.16);
-      color: rgba(255,255,255,.82);
+      background: var(--pill);
+      color: var(--muted);
       font-size:12px;
       white-space:nowrap;
     }
@@ -90,16 +169,15 @@
       padding:12px 14px;
       border-radius:12px;
       border:1px solid var(--line);
-      background: rgba(255,255,255,.04);
+      background: var(--pill);
       color:var(--muted);
       line-height:1.45;
     }
-    .status.ok{border-color: rgba(110,231,183,.25); background: rgba(110,231,183,.06); color:rgba(255,255,255,.9)}
-    .status.warn{border-color: rgba(255,204,102,.25); background: rgba(255,204,102,.06); color:rgba(255,255,255,.9)}
-    .status.err{border-color: rgba(255,107,107,.25); background: rgba(255,107,107,.07); color:rgba(255,255,255,.92)}
+    .status.ok{border-color: rgba(16,185,129,.30); background: rgba(16,185,129,.08); color:var(--text)}
+    .status.warn{border-color: rgba(255,176,32,.32); background: rgba(255,176,32,.10); color:var(--text)}
+    .status.err{border-color: rgba(239,68,68,.30); background: rgba(239,68,68,.10); color:var(--text)}
     .status .icon{font-size:18px; line-height:1}
 
-    /* 控制區：RWD 無橫向捲軸 */
     .controls{
       display:grid; gap:10px;
       grid-template-columns: 1.2fr .8fr;
@@ -132,20 +210,20 @@
       padding:12px 12px;
       border-radius:12px;
       border:1px solid var(--line);
-      background: rgba(0,0,0,.22);
-      color: var(--text);
+      background: var(--inputBg);
+      color: var(--inputText);
       outline:none;
     }
     .input:focus, .select:focus{
-      border-color: rgba(110,168,255,.55);
-      box-shadow:0 0 0 4px rgba(110,168,255,.14);
+      border-color: rgba(47,125,255,.55);
+      box-shadow: var(--ring);
     }
 
-    /* ✅ 修正你說的 select 下拉底色太淺 */
+    /* select dropdown readability */
     .select{appearance:auto;}
     .select option{
-      background:#0b1220;
-      color: rgba(255,255,255,.92);
+      background: var(--selectOptionBg);
+      color: var(--selectOptionText);
     }
 
     .btnrow{display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;}
@@ -153,17 +231,27 @@
       border:none; cursor:pointer;
       padding:12px 14px;
       border-radius:12px;
-      font-weight:750;
-      background: rgba(110,168,255,.18);
-      color: rgba(255,255,255,.92);
-      border:1px solid rgba(110,168,255,.35);
+      font-weight:850;
+      background: rgba(47,125,255,.14);
+      color: var(--head);
+      border:1px solid rgba(47,125,255,.28);
       transition: transform .05s ease, background .2s ease, border .2s ease;
     }
-    .btn:hover{background: rgba(110,168,255,.28)}
+    html[data-theme="dark"] .btn{
+      background: rgba(110,168,255,.18);
+      border-color: rgba(110,168,255,.35);
+      color: rgba(255,255,255,.92);
+    }
+    .btn:hover{background: rgba(47,125,255,.20)}
+    html[data-theme="dark"] .btn:hover{background: rgba(110,168,255,.28)}
     .btn:active{transform: translateY(1px)}
     .btn.secondary{
-      background: rgba(255,255,255,.06);
+      background: rgba(0,0,0,.04);
       border:1px solid var(--line);
+      color: var(--head);
+    }
+    html[data-theme="dark"] .btn.secondary{
+      background: rgba(255,255,255,.06);
       color: rgba(255,255,255,.86);
     }
     .btn:disabled{opacity:.55; cursor:not-allowed}
@@ -182,76 +270,74 @@
       padding:12px 12px;
       border-radius:12px;
       border:1px solid var(--line);
-      background: rgba(0,0,0,.12);
+      background: rgba(0,0,0,.02);
     }
+    html[data-theme="dark"] .stat{background: rgba(0,0,0,.12);}
     .stat .k{color:var(--muted); font-size:12px}
-    .stat .v{margin-top:6px; font-size:20px; font-weight:850}
+    .stat .v{margin-top:6px; font-size:20px; font-weight:900; color:var(--head)}
     .stat .v .unit{font-size:12px; color:var(--muted); font-weight:650; margin-left:6px}
     .muted{color:var(--muted)}
     .small{font-size:12px}
     .kbd{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
 
-    /* 桌機：表格（不強制 min-width，避免整頁水平捲軸） */
     .tablewrap{
       border-radius:12px;
       border:1px solid var(--line);
-      background: rgba(0,0,0,.12);
+      background: rgba(0,0,0,.02);
       overflow:hidden;
     }
+    html[data-theme="dark"] .tablewrap{background: rgba(0,0,0,.12);}
     table{width:100%; border-collapse:collapse;}
     thead th{
-      background: rgba(15,27,51,.96);
+      background: var(--tableHead);
       border-bottom:1px solid var(--line);
       font-size:12px;
-      color: rgba(255,255,255,.85);
+      color: var(--muted);
       text-align:left;
       padding:12px 12px;
       cursor:pointer;
       user-select:none;
       white-space:nowrap;
     }
+    html[data-theme="dark"] thead th{color: rgba(255,255,255,.85);}
+
     tbody td{
       padding:12px 12px;
-      border-bottom:1px solid rgba(255,255,255,.06);
-      color: rgba(255,255,255,.88);
+      border-bottom:1px solid rgba(0,0,0,.05);
+      color: var(--text);
       font-size:13px;
       white-space:nowrap;
     }
-    tbody tr:hover{background: rgba(110,168,255,.08)}
+    html[data-theme="dark"] tbody td{border-bottom:1px solid rgba(255,255,255,.06);}
+    tbody tr:hover{background: var(--rowHover)}
 
-    /* ✅ 路寬更清楚：大字、色彩、對齊 */
     .col-width{width:170px;}
-    .widthCell{
-      font-weight:950;
-      letter-spacing:.2px;
-      font-size:15px;
-      color: rgba(255,255,255,.98);
-    }
-    .widthCell .m{
-      color: var(--accent2);
-      font-size:18px;
-      font-weight:950;
-    }
+    .widthCell{font-weight:950; letter-spacing:.2px; font-size:15px; color: var(--head);}
+    .widthCell .m{color: var(--accent2); font-size:18px; font-weight:950;}
     .widthBadge{
       display:inline-flex; align-items:center; gap:8px;
       padding:6px 10px;
       border-radius:999px;
-      border:1px solid rgba(124,240,196,.30);
+      border:1px solid rgba(16,185,129,.32);
+      background: rgba(16,185,129,.10);
+    }
+    html[data-theme="dark"] .widthBadge{
+      border-color: rgba(124,240,196,.30);
       background: rgba(124,240,196,.10);
     }
 
-    /* ✅ 手機：卡片列表（避免任何橫向捲軸） */
     .list{display:none; gap:10px; flex-direction:column;}
     .item{
       border:1px solid var(--line);
-      background: rgba(0,0,0,.12);
+      background: rgba(0,0,0,.02);
       border-radius:12px;
       padding:12px;
       display:grid;
       grid-template-columns: 1fr auto;
       gap:10px;
     }
-    .item .name{font-weight:850}
+    html[data-theme="dark"] .item{background: rgba(0,0,0,.12);}
+    .item .name{font-weight:900; color:var(--head)}
     .item .meta{color:var(--muted); font-size:12px; margin-top:6px; display:flex; gap:10px; flex-wrap:wrap;}
     .item .width{
       align-self:flex-start;
@@ -260,9 +346,14 @@
       color: var(--accent2);
       padding:6px 10px;
       border-radius:12px;
-      border:1px solid rgba(124,240,196,.30);
-      background: rgba(124,240,196,.10);
+      border:1px solid rgba(16,185,129,.32);
+      background: rgba(16,185,129,.10);
       white-space:nowrap;
+    }
+    html[data-theme="dark"] .item .width{
+      border-color: rgba(124,240,196,.30);
+      background: rgba(124,240,196,.10);
+      color: var(--accent2);
     }
 
     @media (max-width: 860px){
@@ -280,9 +371,13 @@
     .pager{display:flex; gap:8px; align-items:center;}
     .pager button{
       padding:8px 10px; border-radius:10px;
-      border:1px solid var(--line); background: rgba(255,255,255,.06);
-      color: rgba(255,255,255,.88);
+      border:1px solid var(--line); background: rgba(0,0,0,.03);
+      color: var(--head);
       cursor:pointer;
+    }
+    html[data-theme="dark"] .pager button{
+      background: rgba(255,255,255,.06);
+      color: rgba(255,255,255,.88);
     }
     .pager button:disabled{opacity:.45; cursor:not-allowed}
   </style>
@@ -296,7 +391,14 @@
       <h1>道路路寬查詢</h1>
       <div class="subtitle">開啟頁面會自動讀取同層 <span class="kbd">road.csv</span>（你手動更新檔案即可）。</div>
     </div>
-    <div class="badge" id="fileBadge">📄 road.csv：尚未載入</div>
+
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <button class="toggle" id="themeToggle" type="button" title="切換 Light / Dark">
+        <span class="dot"></span>
+        <span id="themeText">Light</span>
+      </button>
+      <div class="badge" id="fileBadge">📄 road.csv：尚未載入</div>
+    </div>
   </div>
 
   <div class="card">
@@ -326,7 +428,6 @@
 
       <div style="height:10px"></div>
 
-      <!-- ✅ 路寬重點：快速篩選 -->
       <div class="row2">
         <div class="field">
           <label>路寬至少（≥ 公尺）</label>
@@ -381,7 +482,6 @@
 
       <div style="height:14px"></div>
 
-      <!-- ✅ 統計：多顯示路寬範圍 -->
       <div class="stats">
         <div class="stat">
           <div class="k">載入筆數</div>
@@ -424,13 +524,41 @@
 
 <script>
   // =========================
+  // THEME (Light default + localStorage)
+  // =========================
+  const THEME_KEY = "TC_ROAD_THEME"; // 'light' | 'dark'
+
+  function applyTheme(theme){
+    const t = (theme === 'dark') ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : '');
+    // 用 remove 更乾淨（light 走 :root）
+    if(t === 'dark') document.documentElement.setAttribute('data-theme','dark');
+    else document.documentElement.removeAttribute('data-theme');
+
+    const label = document.getElementById('themeText');
+    if(label) label.textContent = (t === 'dark') ? 'Dark' : 'Light';
+  }
+
+  function initTheme(){
+    const saved = localStorage.getItem(THEME_KEY);
+    applyTheme(saved || 'light'); // ✅ 預設 Light
+    const btn = document.getElementById('themeToggle');
+    btn.addEventListener('click', () => {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      const next = isDark ? 'light' : 'dark';
+      localStorage.setItem(THEME_KEY, next);
+      applyTheme(next);
+    });
+  }
+
+  // =========================
   // State
   // =========================
   let csvData = [];
   let searchData = [];
   let viewData = [];
 
-  let sortState = { key: null, dir: 1 }; // 1 asc, -1 desc
+  let sortState = { key: null, dir: 1 };
   let page = 1;
 
   const $ = (id)=>document.getElementById(id);
@@ -449,7 +577,6 @@
 
     for(let i=0;i<text.length;i++){
       const ch = text[i];
-
       if(ch === '"'){
         if(inQuotes && text[i+1] === '"'){ cur += '"'; i++; }
         else inQuotes = !inQuotes;
@@ -489,7 +616,6 @@
     el.innerHTML = `<div class="icon">${icon}</div><div>${html}</div>`;
   }
 
-  // 將路寬轉成數值（可吃 "12公尺" / "12" / "12.5m"）
   function widthToNumber(v){
     const n = parseFloat(String(v ?? '').replace(/[^\d.]/g,''));
     return Number.isFinite(n) ? n : null;
@@ -498,7 +624,6 @@
   function formatWidth(v){
     const n = widthToNumber(v);
     if(n === null) return { text: escapeHtml(v || '無資料'), num: null };
-    // 保留 0~1 位小數（你可調）
     const pretty = (Math.round(n * 10) / 10).toString();
     return { text: pretty, num: n };
   }
@@ -513,14 +638,17 @@
   // =========================
   // Load CSV
   // =========================
-  window.onload = () => loadCSV();
+  window.onload = () => {
+    initTheme();     // ✅ 先載入主題（避免閃爍）
+    loadCSV();
+  };
 
   async function loadCSV(){
     try{
       setStatus('loading', `正在讀取 <span class="kbd">road.csv</span>…`);
       $('fileBadge').textContent = '📄 road.csv：載入中…';
 
-      const url = `./road.csv?v=${Date.now()}`; // cache bust
+      const url = `./road.csv?v=${Date.now()}`;
       const res = await fetch(url, { cache:'no-store' });
       if(!res.ok) throw new Error(`HTTP ${res.status}：找不到 road.csv 或無法讀取`);
 
@@ -528,7 +656,6 @@
       csvData = parseCSV(text);
       if(!csvData.length) throw new Error('road.csv 解析不到資料（可能為空或格式異常）');
 
-      // Enable UI
       ['roadName','minWidth','maxWidth','areaFilter','laneFilter','alleyFilter','pageSize'].forEach(id => $(id).disabled = false);
       $('searchBtn').disabled = false;
       $('clearBtn').disabled = false;
@@ -539,7 +666,6 @@
 
       $('roadName').focus();
 
-      // 即時套用路寬篩選（輸入變動就更新）
       $('minWidth').addEventListener('input', debounce(()=>applyFilters(true), 250));
       $('maxWidth').addEventListener('input', debounce(()=>applyFilters(true), 250));
 
@@ -555,7 +681,6 @@
     }
   }
 
-  // Enter to search
   document.addEventListener('keydown', (e)=>{
     if(e.key === 'Enter' && document.activeElement === $('roadName') && !$('roadName').disabled){
       queryRoadData();
@@ -700,7 +825,6 @@
   function renderResults(keepPage=false){
     const resultDiv = $('result');
 
-    // Stats
     const range = computeWidthRange(viewData);
     updateStats(csvData.length, searchData.length, range);
 
@@ -720,7 +844,6 @@
     const start = (page - 1) * pageSize;
     const slice = sorted.slice(start, start + pageSize);
 
-    // Footer
     $('footerbar').style.display = 'flex';
     $('pageNow').textContent = page;
     $('pageMax').textContent = maxPage;
@@ -730,7 +853,6 @@
     const sortLabel = sortState.key ? `${sortState.key}（${sortState.dir===1?'升冪':'降冪'}）` : '未排序';
     $('sortInfo').textContent = `排序：${sortLabel}`;
 
-    // Render: Desktop table + Mobile list (no horizontal scroll)
     resultDiv.innerHTML = `
       <div class="tablewrap">
         <table>
@@ -797,7 +919,11 @@
     }
     const min = Math.round(range.min * 10)/10;
     const max = Math.round(range.max * 10)/10;
-    $('statRange').innerHTML = `<span style="color:var(--accent2); font-weight:950;">${min}</span> ～ <span style="color:var(--accent2); font-weight:950;">${max}</span><span class="unit">m</span>`;
+    $('statRange').innerHTML =
+      `<span style="color:var(--accent2); font-weight:950;">${min}</span>`+
+      ` ～ `+
+      `<span style="color:var(--accent2); font-weight:950;">${max}</span>`+
+      `<span class="unit">m</span>`;
   }
 
   function prevPage(){ page = Math.max(1, page-1); renderResults(true); }
